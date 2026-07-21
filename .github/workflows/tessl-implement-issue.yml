@@ -1,0 +1,67 @@
+name: Tessl Implement Issue
+
+on:
+  workflow_dispatch:
+    inputs:
+      issue_number:
+        description: GitHub issue number to implement
+        required: true
+        type: string
+      extra_instructions:
+        description: Optional short steering instructions
+        required: false
+        type: string
+        default: ""
+      agent:
+        description: Agent backend to use
+        required: false
+        type: choice
+        default: tessl-agent
+        options:
+          - tessl-agent
+          - claude-code
+          - codex
+          - cursor
+
+permissions:
+  contents: write
+  issues: read
+  pull-requests: write
+
+concurrency:
+  group: tessl-implement-issue-${{ github.event.inputs.issue_number }}
+  cancel-in-progress: false
+
+jobs:
+  implement:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Enable Corepack
+        run: corepack enable
+
+      - name: Install dependencies
+        run: yarn install --frozen-lockfile
+
+      - name: Install Tessl CLI
+        run: npm install -g @tessl/cli
+
+      - name: Implement issue with Tessl
+        env:
+          TESSL_TOKEN: ${{ secrets.TESSL_TOKEN }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          AGENT: ${{ github.event.inputs.agent }}
+        run: |
+          scripts/agent-implement-issue.sh \
+            "${{ github.event.inputs.issue_number }}" \
+            "${{ github.event.inputs.extra_instructions }}"

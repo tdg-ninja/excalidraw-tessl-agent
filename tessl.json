@@ -1,0 +1,8 @@
+{
+  "name": "excalidraw-tessl-agent",
+  "dependencies": {
+    "local/issue-implementer": {
+      "source": "file:plugins/issue-implementer"
+    }
+  }
+}
