@@ -331,6 +331,8 @@
     "magicframe": "Wireframe to code",
     "embeddable": "Web Embed",
     "laser": "Laser pointer",
+    "laserPointerPersistence": "Keep laser strokes visible",
+    "clearLaserPointer": "Clear laser strokes",
     "hand": "Hand (panning tool)",
     "extraTools": "More tools",
     "mermaidToExcalidraw": "Mermaid to Excalidraw",

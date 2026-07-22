@@ -3227,6 +3227,10 @@ class App extends React.Component<AppProps, AppState> {
       bindMode: "orbit",
       activeEmbeddable: null,
       activeLockedId: null,
+      laserPointerSettings: {
+        ...this.state.laserPointerSettings,
+        isPersistent: false,
+      },
       selectedElementsAreBeingDragged: false,
       selectionElement: null,
       resizingElement: null,
@@ -3311,6 +3315,7 @@ class App extends React.Component<AppProps, AppState> {
         // end a possibly mid-stroke laser trail (the stroke's own window
         // listeners tear down on the next pointerup)
         this.laserTrails.endPath();
+        this.clearLaserPointerTrails();
       }
       this.cursor.reset();
     }
@@ -4958,6 +4963,39 @@ class App extends React.Component<AppProps, AppState> {
       this.state.scrollConstraints
     ) {
       this.viewport.releaseOverscroll();
+    }
+  };
+
+  toggleLaserPointerPersistence = () => {
+    this.setState((prevState) => {
+      const isPersistent = !prevState.laserPointerSettings.isPersistent;
+
+      if (!isPersistent) {
+        this.clearLaserPointerTrails();
+      } else {
+        this.laserTrails.syncLocalTrailOptions(true);
+      }
+
+      return {
+        laserPointerSettings: {
+          ...prevState.laserPointerSettings,
+          isPersistent,
+        },
+      };
+    });
+  };
+
+  clearLaserPointerTrails = () => {
+    const hasLocalTrails = this.laserTrails.hasLocalTrails;
+    this.laserTrails.clearLocalTrails();
+
+    if (hasLocalTrails && this.lastPointerMoveCoords) {
+      this.savePointer(
+        this.lastPointerMoveCoords.x,
+        this.lastPointerMoveCoords.y,
+        "up",
+        { laserPointerPersistence: false },
+      );
     }
   };
 
@@ -13610,7 +13648,12 @@ class App extends React.Component<AppProps, AppState> {
     }
   }
 
-  private savePointer = (x: number, y: number, button: "up" | "down") => {
+  private savePointer = (
+    x: number,
+    y: number,
+    button: "up" | "down",
+    pointerOverrides?: Partial<CollaboratorPointer>,
+  ) => {
     // don't broadcast pointer updates (props.onPointerUpdate) when
     // non-interactive, unless the active tool stays user-driven via
     // `interaction.enabled.tools` — collaborators render e.g. a presenter's
@@ -13637,7 +13680,13 @@ class App extends React.Component<AppProps, AppState> {
       x: sceneX,
       y: sceneY,
       tool: this.state.activeTool.type === "laser" ? "laser" : "pointer",
+      ...pointerOverrides,
     };
+
+    if (pointer.tool === "laser" && pointer.laserPointerPersistence == null) {
+      pointer.laserPointerPersistence =
+        this.state.laserPointerSettings.isPersistent;
+    }
 
     this.props.onPointerUpdate?.({
       pointer,

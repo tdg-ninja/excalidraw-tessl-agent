@@ -295,6 +295,28 @@ export const MobileToolbar = ({ app, setAppState }: MobileToolbarProps) => {
           >
             {t("toolBar.laser")}
           </DropdownMenu.Item>
+          {laserToolSelected && (
+            <>
+              <DropdownMenu.ItemCheckbox
+                checked={app.state.laserPointerSettings.isPersistent}
+                onSelect={(event) => {
+                  event.preventDefault();
+                  app.toggleLaserPointerPersistence();
+                }}
+                data-testid="toolbar-laser-persistence"
+              >
+                {t("toolBar.laserPointerPersistence")}
+              </DropdownMenu.ItemCheckbox>
+              {app.state.laserPointerSettings.isPersistent && (
+                <DropdownMenu.Item
+                  onSelect={() => app.clearLaserPointerTrails()}
+                  data-testid="toolbar-laser-clear"
+                >
+                  {t("toolBar.clearLaserPointer")}
+                </DropdownMenu.Item>
+              )}
+            </>
+          )}
           <div style={{ margin: "6px 0", fontSize: 14, fontWeight: 600 }}>
             Generate
           </div>

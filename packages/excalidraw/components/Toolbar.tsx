@@ -130,6 +130,28 @@ const ExtraToolsDropdown = ({
         >
           {t("toolBar.laser")}
         </DropdownMenu.Item>
+        {laserToolSelected && (
+          <>
+            <DropdownMenu.ItemCheckbox
+              checked={app.state.laserPointerSettings.isPersistent}
+              onSelect={(event) => {
+                event.preventDefault();
+                app.toggleLaserPointerPersistence();
+              }}
+              data-testid="toolbar-laser-persistence"
+            >
+              {t("toolBar.laserPointerPersistence")}
+            </DropdownMenu.ItemCheckbox>
+            {app.state.laserPointerSettings.isPersistent && (
+              <DropdownMenu.Item
+                onSelect={() => app.clearLaserPointerTrails()}
+                data-testid="toolbar-laser-clear"
+              >
+                {t("toolBar.clearLaserPointer")}
+              </DropdownMenu.Item>
+            )}
+          </>
+        )}
         {isFullStylesPanel && (
           <DropdownMenu.Item
             onSelect={() => app.setActiveTool({ type: "lasso" })}

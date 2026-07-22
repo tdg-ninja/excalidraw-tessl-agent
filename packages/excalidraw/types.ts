@@ -96,6 +96,7 @@ export type CollaboratorPointer = {
   x: number;
   y: number;
   tool: "pointer" | "laser";
+  laserPointerPersistence?: boolean;
   /**
    * Whether to render cursor + username. Useful when you only want to render
    * laser trail.
@@ -389,6 +390,9 @@ export interface AppState {
     // indicates if the current tool is temporarily switched on from the selection tool
     fromSelection: boolean;
   } & ActiveTool;
+  laserPointerSettings: {
+    isPersistent: boolean;
+  };
   preferredSelectionTool: {
     type: "selection" | "lasso";
     initialized: boolean;
@@ -774,7 +778,12 @@ export interface ExcalidrawProps {
   onInitialize?: (api: ExcalidrawImperativeAPI) => void;
   isCollaborating?: boolean;
   onPointerUpdate?: (payload: {
-    pointer: { x: number; y: number; tool: "pointer" | "laser" };
+    pointer: {
+      x: number;
+      y: number;
+      tool: "pointer" | "laser";
+      laserPointerPersistence?: boolean;
+    };
     button: "down" | "up";
     pointersMap: Gesture["pointers"];
   }) => void;
@@ -1064,6 +1073,8 @@ export type AppClassProperties = {
   addElementsFromPasteOrLibrary: App["addElementsFromPasteOrLibrary"];
   togglePenMode: App["togglePenMode"];
   toggleLock: App["toggleLock"];
+  toggleLaserPointerPersistence: App["toggleLaserPointerPersistence"];
+  clearLaserPointerTrails: App["clearLaserPointerTrails"];
   setActiveTool: App["setActiveTool"];
   setOpenDialog: App["setOpenDialog"];
   insertEmbeddableElement: App["insertEmbeddableElement"];
