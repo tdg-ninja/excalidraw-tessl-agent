@@ -1,0 +1,7 @@
+{
+  "name": "local/issue-implementer",
+  "description": "Implement GitHub issues end-to-end in this repository and open verified pull requests.",
+  "private": true,
+  "skills": ["skills/implement-issue"],
+  "version": "0.1.0"
+}
