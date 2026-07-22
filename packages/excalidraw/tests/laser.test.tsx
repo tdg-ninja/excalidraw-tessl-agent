@@ -172,6 +172,28 @@ describe("laser tool interactions", () => {
     expect(GlobalTestState.interactiveCanvas.style.cursor).toContain("");
   });
 
+  it("keeps persistent laser trails visible until cleared", async () => {
+    await render(<Excalidraw />);
+
+    act(() => {
+      h.app.setActiveTool({ type: "laser" });
+      h.app.toggleLaserPointerPersistence();
+    });
+
+    mouse.downAt(10, 10);
+    mouse.moveTo(40, 40);
+    mouse.upAt(40, 40);
+
+    expect(h.app.laserTrails.localTrail.hasCurrentTrail).toBe(false);
+    expect(h.app.laserTrails.hasLocalTrails).toBe(true);
+
+    act(() => {
+      h.app.clearLaserPointerTrails();
+    });
+
+    expect(h.app.laserTrails.hasLocalTrails).toBe(false);
+  });
+
   it("cleans up remote laser trails when the last collaborator leaves", async () => {
     await render(<Excalidraw />);
 
@@ -202,6 +224,73 @@ describe("laser tool interactions", () => {
     });
 
     expect(svgLayer.querySelectorAll("path")).toHaveLength(0);
+  });
+
+  it("keeps remote persistent laser trails until collaborator turns persistence off", async () => {
+    await render(<Excalidraw />);
+
+    const socketId = "socket-id" as SocketId;
+    const collaborators = new Map<SocketId, Collaborator>([
+      [
+        socketId,
+        {
+          pointer: {
+            x: 10,
+            y: 10,
+            tool: "laser",
+            laserPointerPersistence: true,
+          },
+          button: "down",
+        },
+      ],
+    ]);
+    const svgLayer = document.querySelector(".SVGLayer svg")!;
+
+    act(() => {
+      h.app.updateScene({ collaborators });
+    });
+
+    const collaboratorsAfterPointerUp = new Map<SocketId, Collaborator>([
+      [
+        socketId,
+        {
+          pointer: {
+            x: 40,
+            y: 40,
+            tool: "laser",
+            laserPointerPersistence: true,
+          },
+          button: "up",
+        },
+      ],
+    ]);
+
+    act(() => {
+      h.app.updateScene({ collaborators: collaboratorsAfterPointerUp });
+    });
+
+    expect(svgLayer.querySelectorAll("path")).toHaveLength(1);
+
+    const collaboratorsAfterClear = new Map<SocketId, Collaborator>([
+      [
+        socketId,
+        {
+          pointer: {
+            x: 40,
+            y: 40,
+            tool: "laser",
+            laserPointerPersistence: false,
+          },
+          button: "up",
+        },
+      ],
+    ]);
+
+    act(() => {
+      h.app.updateScene({ collaborators: collaboratorsAfterClear });
+    });
+
+    expect(svgLayer.querySelector("path")?.getAttribute("d")).toBe("");
   });
 });
 

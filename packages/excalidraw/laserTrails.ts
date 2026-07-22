@@ -21,28 +21,37 @@ export class LaserTrails implements Trail {
     });
   }
 
-  private getTrailOptions() {
+  private getTrailOptions(isPersistent = false) {
     return {
       simplify: 0,
       streamline: 0.4,
-      sizeMapping: (c) => {
-        const DECAY_TIME = 1000;
-        const DECAY_LENGTH = 50;
-        const t = Math.max(
-          0,
-          1 - (performance.now() - c.pressure) / DECAY_TIME,
-        );
-        const l =
-          (DECAY_LENGTH -
-            Math.min(DECAY_LENGTH, c.totalLength - c.currentIndex)) /
-          DECAY_LENGTH;
+      sizeMapping: isPersistent
+        ? () => 1
+        : (c) => {
+            const DECAY_TIME = 1000;
+            const DECAY_LENGTH = 50;
+            const t = Math.max(
+              0,
+              1 - (performance.now() - c.pressure) / DECAY_TIME,
+            );
+            const l =
+              (DECAY_LENGTH -
+                Math.min(DECAY_LENGTH, c.totalLength - c.currentIndex)) /
+              DECAY_LENGTH;
 
-        return Math.min(easeOut(l), easeOut(t));
-      },
+            return Math.min(easeOut(l), easeOut(t));
+          },
     } as Partial<LaserPointerOptions>;
   }
 
+  syncLocalTrailOptions(
+    isPersistent = this.app.state.laserPointerSettings.isPersistent,
+  ): void {
+    this.localTrail.updateOptions(this.getTrailOptions(isPersistent));
+  }
+
   startPath(x: number, y: number): void {
+    this.syncLocalTrailOptions();
     this.localTrail.startPath(x, y);
   }
 
@@ -52,6 +61,14 @@ export class LaserTrails implements Trail {
 
   endPath(): void {
     this.localTrail.endPath();
+  }
+
+  clearLocalTrails(): void {
+    this.localTrail.clearTrails();
+  }
+
+  get hasLocalTrails() {
+    return this.localTrail.hasTrails;
   }
 
   start(container: SVGSVGElement) {
@@ -95,7 +112,9 @@ export class LaserTrails implements Trail {
       let trail = this.collabTrails.get(key);
       if (!trail) {
         trail = new AnimatedTrail(this.app, {
-          ...this.getTrailOptions(),
+          ...this.getTrailOptions(
+            collaborator.pointer?.laserPointerPersistence,
+          ),
           fill: () =>
             collaborator.pointer?.laserColor ||
             getClientColor(key, collaborator),
@@ -106,6 +125,14 @@ export class LaserTrails implements Trail {
       }
 
       if (collaborator.pointer && collaborator.pointer.tool === "laser") {
+        const isPersistent = !!collaborator.pointer.laserPointerPersistence;
+        if (!isPersistent && !trail.hasCurrentTrail && trail.hasTrails) {
+          trail.clearTrails();
+          continue;
+        }
+
+        trail.updateOptions(this.getTrailOptions(isPersistent));
+
         const buttonDown = collaborator.button === "down";
         const buttonUp = collaborator.button === "up";
         const hasTrail = trail.hasCurrentTrail;
@@ -129,6 +156,8 @@ export class LaserTrails implements Trail {
           trail.addPointToPath(collaborator.pointer.x, collaborator.pointer.y);
           trail.endPath();
         }
+      } else {
+        trail.clearTrails();
       }
     }
   }

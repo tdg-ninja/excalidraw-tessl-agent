@@ -62,6 +62,10 @@ export class AnimatedTrail implements Trail {
     return !!this.currentTrail;
   }
 
+  get hasTrails() {
+    return this.hasCurrentTrail || this.pastTrails.length > 0;
+  }
+
   hasLastPoint(x: number, y: number) {
     if (this.currentTrail) {
       const len = this.currentTrail.originalPoints.length;
@@ -111,6 +115,24 @@ export class AnimatedTrail implements Trail {
     this.cleanup();
   }
 
+  updateOptions(options: Partial<LaserPointerOptions>) {
+    this.options = {
+      ...this.options,
+      ...options,
+    };
+
+    if (this.currentTrail) {
+      Object.assign(this.currentTrail.options, options);
+    }
+    for (const trail of this.pastTrails) {
+      Object.assign(trail.options, options);
+    }
+
+    if (this.currentTrail || this.pastTrails.length > 0) {
+      this.update();
+    }
+  }
+
   startPath(x: number, y: number) {
     this.currentTrail = new LaserPointer(this.options);
 
@@ -143,6 +165,7 @@ export class AnimatedTrail implements Trail {
   clearTrails() {
     this.pastTrails = [];
     this.currentTrail = undefined;
+    this.trailElement.setAttribute("d", "");
     this.update();
   }
 

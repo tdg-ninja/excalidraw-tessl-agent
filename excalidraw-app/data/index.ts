@@ -96,7 +96,12 @@ export type SocketUpdateDataSource = {
     type: WS_SUBTYPES.MOUSE_LOCATION;
     payload: {
       socketId: SocketId;
-      pointer: { x: number; y: number; tool: "pointer" | "laser" };
+      pointer: {
+        x: number;
+        y: number;
+        tool: "pointer" | "laser";
+        laserPointerPersistence?: boolean;
+      };
       button: "down" | "up";
       selectedElementIds: AppState["selectedElementIds"];
       username: string;
