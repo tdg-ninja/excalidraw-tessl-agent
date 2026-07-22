@@ -5393,11 +5393,19 @@ class App extends React.Component<AppProps, AppState> {
         }, 100);
       }
 
-      // prevent browser zoom in input fields
       if (event[KEYS.CTRL_OR_CMD] && isWritableElement(event.target)) {
+        // prevent browser zoom in input fields
         if (event.code === CODES.MINUS || event.code === CODES.EQUAL) {
           event.preventDefault();
           return;
+        }
+
+        // allow save shortcuts while editing text so the browser doesn't
+        // handle Ctrl/Cmd+S as "Save page as...".
+        if (event.key.toLowerCase() === KEYS.S) {
+          if (this.actionManager.handleKeyDown(event)) {
+            return;
+          }
         }
       }
 
