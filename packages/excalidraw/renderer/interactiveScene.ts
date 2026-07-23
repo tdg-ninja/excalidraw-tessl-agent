@@ -955,6 +955,80 @@ type ElementSelectionBorder = {
   padding?: number;
 };
 
+type RemoteEditingTextIndicator = {
+  angle: number;
+  x1: number;
+  y1: number;
+  x2: number;
+  y2: number;
+  cx: number;
+  cy: number;
+  label: string;
+  color: string;
+  stackIndex: number;
+};
+
+const renderRemoteEditingTextIndicator = (
+  context: CanvasRenderingContext2D,
+  appState: InteractiveCanvasAppState,
+  indicator: RemoteEditingTextIndicator,
+) => {
+  const { angle, x1, y1, x2, y2, cx, cy, color, label, stackIndex } = indicator;
+  const zoom = appState.zoom.value;
+  const padding = DEFAULT_TRANSFORM_HANDLE_SPACING * 2;
+  const linePadding = padding / zoom;
+  const elementWidth = x2 - x1;
+  const elementHeight = y2 - y1;
+  const fontSize = 12 / zoom;
+  const horizontalPadding = 6 / zoom;
+  const verticalPadding = 4 / zoom;
+  const gap = 6 / zoom;
+
+  context.save();
+  context.translate(appState.scrollX, appState.scrollY);
+  context.translate(cx, cy);
+  context.rotate(angle);
+  context.font = `600 ${fontSize}px sans-serif`;
+
+  const measure = context.measureText(label);
+  const measureHeight =
+    measure.actualBoundingBoxDescent + measure.actualBoundingBoxAscent ||
+    fontSize;
+  const boxWidth = measure.width + horizontalPadding * 2;
+  const boxHeight = measureHeight + verticalPadding * 2;
+  const boxX = -elementWidth / 2 - linePadding;
+  const boxY =
+    -elementHeight / 2 -
+    linePadding -
+    gap -
+    boxHeight -
+    stackIndex * (boxHeight + gap / 2);
+
+  context.lineWidth = 1 / zoom;
+  context.fillStyle = color;
+  context.strokeStyle = "#fff";
+  context.beginPath();
+  if (context.roundRect) {
+    context.roundRect(boxX, boxY, boxWidth, boxHeight, 8 / zoom);
+  } else {
+    context.rect(boxX, boxY, boxWidth, boxHeight);
+  }
+  context.fill();
+  context.stroke();
+
+  context.fillStyle = "#1e1e1e";
+  context.fillText(
+    label,
+    boxX + horizontalPadding,
+    boxY +
+      verticalPadding +
+      measure.actualBoundingBoxAscent +
+      Math.max(0, (fontSize - measureHeight) / 2),
+  );
+
+  context.restore();
+};
+
 const renderSelectionBorder = (
   context: CanvasRenderingContext2D,
   appState: InteractiveCanvasAppState,
@@ -1802,17 +1876,23 @@ const _renderInteractiveScene = ({
     }
     const selectionColor = renderConfig.selectionColor || "#000";
 
-    if (showBoundingBox) {
+    const shouldRenderRemoteEditingTextIndicators =
+      renderConfig.remoteEditingTextElementIds.size > 0;
+
+    if (showBoundingBox || shouldRenderRemoteEditingTextIndicators) {
       // Optimisation for finding quickly relevant element ids
       const locallySelectedIds = arrayToMap(selectedElements);
 
       const selections: ElementSelectionBorder[] = [];
+      const remoteEditingTextIndicators: RemoteEditingTextIndicator[] = [];
 
       for (const element of elementsMap.values()) {
         const selectionColors = [];
-        const remoteClients = renderConfig.remoteSelectedElementIds.get(
-          element.id,
-        );
+        const remoteClients = showBoundingBox
+          ? renderConfig.remoteSelectedElementIds.get(element.id)
+          : undefined;
+        const remoteEditingClients =
+          renderConfig.remoteEditingTextElementIds.get(element.id);
         if (
           !(
             // Elbow arrow elements cannot be selected when bound on either end
@@ -1825,6 +1905,7 @@ const _renderInteractiveScene = ({
         ) {
           // local user
           if (
+            showBoundingBox &&
             locallySelectedIds.has(element.id) &&
             !isSelectedViaGroup(appState, element)
           ) {
@@ -1844,31 +1925,60 @@ const _renderInteractiveScene = ({
           }
         }
 
-        if (selectionColors.length) {
+        const shouldRenderEditingIndicators =
+          remoteEditingClients && isTextElement(element);
+
+        if (selectionColors.length || shouldRenderEditingIndicators) {
           const [x1, y1, x2, y2, cx, cy] = getElementAbsoluteCoords(
             element,
             elementsMap,
             true,
           );
-          selections.push({
-            angle: element.angle,
-            x1,
-            y1,
-            x2,
-            y2,
-            selectionColors: element.locked ? ["#ced4da"] : selectionColors,
-            dashed: !!remoteClients || element.locked,
-            cx,
-            cy,
-            activeEmbeddable:
-              appState.activeEmbeddable?.element === element &&
-              appState.activeEmbeddable.state === "active",
-            padding:
-              element.id === appState.croppingElementId ||
-              isImageElement(element)
-                ? 0
-                : undefined,
-          });
+
+          if (selectionColors.length) {
+            selections.push({
+              angle: element.angle,
+              x1,
+              y1,
+              x2,
+              y2,
+              selectionColors: element.locked ? ["#ced4da"] : selectionColors,
+              dashed: !!remoteClients || element.locked,
+              cx,
+              cy,
+              activeEmbeddable:
+                appState.activeEmbeddable?.element === element &&
+                appState.activeEmbeddable.state === "active",
+              padding:
+                element.id === appState.croppingElementId ||
+                isImageElement(element)
+                  ? 0
+                  : undefined,
+            });
+          }
+
+          if (remoteEditingClients) {
+            remoteEditingTextIndicators.push(
+              ...remoteEditingClients.map((socketId, index) => {
+                const collaborator = appState.collaborators.get(socketId);
+                return {
+                  angle: element.angle,
+                  x1,
+                  y1,
+                  x2,
+                  y2,
+                  cx,
+                  cy,
+                  label:
+                    index === 0
+                      ? `${collaborator?.username || "Someone"} editing…`
+                      : "editing…",
+                  color: getClientColor(socketId, collaborator),
+                  stackIndex: index,
+                };
+              }),
+            );
+          }
         }
       }
 
@@ -1891,17 +2001,22 @@ const _renderInteractiveScene = ({
         });
       };
 
-      for (const groupId of getSelectedGroupIds(appState)) {
-        // TODO: support multiplayer selected group IDs
-        addSelectionForGroupId(groupId);
-      }
+      if (showBoundingBox) {
+        for (const groupId of getSelectedGroupIds(appState)) {
+          // TODO: support multiplayer selected group IDs
+          addSelectionForGroupId(groupId);
+        }
 
-      if (appState.editingGroupId) {
-        addSelectionForGroupId(appState.editingGroupId);
+        if (appState.editingGroupId) {
+          addSelectionForGroupId(appState.editingGroupId);
+        }
       }
 
       selections.forEach((selection) =>
         renderSelectionBorder(context, appState, selection),
+      );
+      remoteEditingTextIndicators.forEach((indicator) =>
+        renderRemoteEditingTextIndicator(context, appState, indicator),
       );
     }
     // Paint resize transformHandles
