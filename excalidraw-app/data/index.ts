@@ -18,6 +18,7 @@ import type { ImportedDataState } from "@excalidraw/excalidraw/data/types";
 import type { SceneBounds } from "@excalidraw/element";
 import type {
   ExcalidrawElement,
+  ExcalidrawTextElement,
   FileId,
   OrderedExcalidrawElement,
 } from "@excalidraw/element/types";
@@ -99,6 +100,7 @@ export type SocketUpdateDataSource = {
       pointer: { x: number; y: number; tool: "pointer" | "laser" };
       button: "down" | "up";
       selectedElementIds: AppState["selectedElementIds"];
+      editingTextElementId: ExcalidrawTextElement["id"] | null;
       username: string;
     };
   };

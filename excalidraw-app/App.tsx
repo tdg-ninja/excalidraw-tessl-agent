@@ -681,6 +681,7 @@ const ExcalidrawWrapper = () => {
   ) => {
     if (collabAPI?.isCollaborating()) {
       collabAPI.syncElements(elements);
+      collabAPI.onChange(elements, appState);
     }
 
     // this check is redundant, but since this is a hot path, it's best

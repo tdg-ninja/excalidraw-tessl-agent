@@ -43,6 +43,7 @@ import type {
   OrderedExcalidrawElement,
 } from "@excalidraw/element/types";
 import type {
+  AppState,
   BinaryFileData,
   ExcalidrawImperativeAPI,
   SocketId,
@@ -115,6 +116,7 @@ export interface CollabAPI {
   /** function so that we can access the latest value from stale callbacks */
   isCollaborating: () => boolean;
   onPointerUpdate: CollabInstance["onPointerUpdate"];
+  onChange: CollabInstance["onChange"];
   startCollaboration: CollabInstance["startCollaboration"];
   stopCollaboration: CollabInstance["stopCollaboration"];
   syncElements: CollabInstance["syncElements"];
@@ -139,6 +141,10 @@ class Collab extends PureComponent<CollabProps, CollabState> {
   private socketInitializationTimer?: number;
   private lastBroadcastedOrReceivedSceneVersion: number = -1;
   private collaborators = new Map<SocketId, Collaborator>();
+  private lastPointerUpdate: Pick<
+    SocketUpdateDataSource["MOUSE_LOCATION"]["payload"],
+    "pointer" | "button"
+  > | null = null;
 
   constructor(props: CollabProps) {
     super(props);
@@ -230,6 +236,7 @@ class Collab extends PureComponent<CollabProps, CollabState> {
     const collabAPI: CollabAPI = {
       isCollaborating: this.isCollaborating,
       onPointerUpdate: this.onPointerUpdate,
+      onChange: this.onChange,
       startCollaboration: this.startCollaboration,
       syncElements: this.syncElements,
       fetchImageFilesFromFirebase: this.fetchImageFilesFromFirebase,
@@ -608,8 +615,13 @@ class Collab extends PureComponent<CollabProps, CollabState> {
             );
             break;
           case WS_SUBTYPES.MOUSE_LOCATION: {
-            const { pointer, button, username, selectedElementIds } =
-              decryptedData.payload;
+            const {
+              pointer,
+              button,
+              username,
+              selectedElementIds,
+              editingTextElementId,
+            } = decryptedData.payload;
 
             const socketId: SocketUpdateDataSource["MOUSE_LOCATION"]["payload"]["socketId"] =
               decryptedData.payload.socketId ||
@@ -620,6 +632,7 @@ class Collab extends PureComponent<CollabProps, CollabState> {
               pointer,
               button,
               selectedElementIds,
+              editingTextElementId,
               username,
             });
 
@@ -915,13 +928,51 @@ class Collab extends PureComponent<CollabProps, CollabState> {
       pointer: SocketUpdateDataSource["MOUSE_LOCATION"]["payload"]["pointer"];
       button: SocketUpdateDataSource["MOUSE_LOCATION"]["payload"]["button"];
       pointersMap: Gesture["pointers"];
+      editingTextElementId: SocketUpdateDataSource["MOUSE_LOCATION"]["payload"]["editingTextElementId"];
     }) => {
+      this.lastPointerUpdate = {
+        pointer: payload.pointer,
+        button: payload.button,
+      };
+
       payload.pointersMap.size < 2 &&
         this.portal.socket &&
         this.portal.broadcastMouseLocation(payload);
     },
     CURSOR_SYNC_TIMEOUT,
   );
+
+  private lastBroadcastedEditingTextElementId: SocketUpdateDataSource["MOUSE_LOCATION"]["payload"]["editingTextElementId"] =
+    null;
+
+  onChange = (
+    elements: readonly OrderedExcalidrawElement[],
+    appState: AppState,
+  ) => {
+    const editingTextElementId = appState.editingTextElement?.id ?? null;
+
+    if (editingTextElementId === this.lastBroadcastedEditingTextElementId) {
+      return;
+    }
+
+    this.lastBroadcastedEditingTextElementId = editingTextElementId;
+
+    if (this.portal.socket) {
+      const editingTextElement = editingTextElementId
+        ? elements.find((element) => element.id === editingTextElementId)
+        : null;
+
+      this.portal.broadcastMouseLocation({
+        pointer: this.lastPointerUpdate?.pointer || {
+          x: editingTextElement?.x || 0,
+          y: editingTextElement?.y || 0,
+          tool: appState.activeTool.type === "laser" ? "laser" : "pointer",
+        },
+        button: this.lastPointerUpdate?.button || "up",
+        editingTextElementId,
+      });
+    }
+  };
 
   relayVisibleSceneBounds = (props?: { force: boolean }) => {
     const appState = this.excalidrawAPI.getAppState();

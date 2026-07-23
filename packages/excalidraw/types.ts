@@ -74,6 +74,7 @@ export type Collaborator = Readonly<{
   pointer?: CollaboratorPointer;
   button?: "up" | "down";
   selectedElementIds?: AppState["selectedElementIds"];
+  editingTextElementId?: ExcalidrawTextElement["id"] | null;
   username?: string | null;
   userState?: UserIdleState;
   color?: {
@@ -777,6 +778,7 @@ export interface ExcalidrawProps {
     pointer: { x: number; y: number; tool: "pointer" | "laser" };
     button: "down" | "up";
     pointersMap: Gesture["pointers"];
+    editingTextElementId: ExcalidrawTextElement["id"] | null;
   }) => void;
   onPaste?: (
     data: ClipboardData,

@@ -13643,6 +13643,7 @@ class App extends React.Component<AppProps, AppState> {
       pointer,
       button,
       pointersMap: gesture.pointers,
+      editingTextElementId: this.state.editingTextElement?.id ?? null,
     });
   };
 
